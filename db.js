@@ -124,7 +124,7 @@ app.use((err,req,res,next)=>{
 
 
 app.get('/services/:id',(req,res)=>{
-    const {id} = req.params.id
+    const {id} = req.params
     sql = "select * from services where id = ?"
     db.query(sql, [id],(data,err)=>{
         console.log(data)
