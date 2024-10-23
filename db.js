@@ -56,7 +56,7 @@ app.post('/addservices', (req, res) => {
 ///  delete user
 app.delete('/services/:id', (req, res) => {
     const sql = 'DELETE FROM services WHERE id = ?';
-    const id = Numberbm (req.params.id);
+    const id = Number(req.params.id);
     db.query(sql, [id], (err, result) => {
         if (err) throw err;
         res.send(result);
