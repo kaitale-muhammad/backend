@@ -3,7 +3,7 @@ const app = express();
 const multer = require("multer");
 const http = require("http");
 const server = http.createServer(app);
-const mysql = require("mysql2");
+
 const cors = require("cors");
 const bodyParser = require("body-parser");
 const nodemailer = require("nodemailer");
@@ -11,19 +11,10 @@ const crypto = require("crypto");
 app.use(express.json());
 app.use(cors());
 const path = require("path");
+const db = require("./dbInit");
+const { getAttendance, workersAttendance } = require("./attendances");
 
 // connections
-const db = mysql.createConnection({
-  host: "localhost",
-  password: "17896",
-  database: "demo",
-  user: "root",
-});
-
-db.connect((err) => {
-  console.log("Connected");
-  console.log(err);
-});
 
 // directory
 app.use("/imgs", express.static(path.join(__dirname, "uploads")));
@@ -1117,19 +1108,20 @@ app.get("/allusers", (req, res) => {
 /// ///////////////// Attendance Registration ============
 // id, worker_id, date, site_name, email
 app.post("/attendance", (req, res) => {
-  const { worker_id, site_name } = req.body;
+  const { worker_id, date, site_name } = req.body;
 
   // Check if the necessary fields are provided
-  if (!worker_id || !site_name) {
+  if (!worker_id || !date || !site_name) {
     return res
       .status(400)
       .json({ message: "Worker ID and Site Name are required" });
   }
 
   // SQL query to insert data into the attendance table
-  const sql = "INSERT INTO attendance (worker_id, site_name) VALUES (?, ?)";
+  const sql =
+    "INSERT INTO attendance (worker_id,date, site_name) VALUES (?, ?,?)";
 
-  db.query(sql, [worker_id, site_name], (err, data) => {
+  db.query(sql, [worker_id, date, site_name], (err, data) => {
     if (err) {
       console.error("Error inserting data:", err);
       return res
@@ -1367,6 +1359,34 @@ WHERE id = ?`;
   );
 });
 
+/// fetch  clients services
+app.post("/clientsservices", (req, res) => {
+  const { email } = req.body;
+  if (!email) {
+    return res.status(400).json({ message: "Email is required" });
+  }
+  // Query the clients table by email
+  const query = `
+    SELECT 
+      id, name, contact, email, site_name, location, man_power, gun, dog, 
+      baton, touch, radio_call, others, date_added 
+    FROM clients 
+    WHERE email = ?
+  `;
+  db.query(query, [email], (error, results) => {
+    if (error) {
+      console.error("Error fetching client data:", error.message);
+      return res.status(500).json({ message: "Database error" });
+    }
+    if (results.length === 0) {
+      return res
+        .status(404)
+        .json({ message: "No clients found for this email" });
+    }
+    res.status(200).json(results);
+  });
+});
+
 /////////////////////// Workers ==============
 
 /// uploads image to worker
@@ -1595,9 +1615,15 @@ app.get("/sumclients", (req, res) => {
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    return res.send(err);
   });
 });
+
+/////////////// //////////// attendances
+
+// Fetch attendance data by year and month
+app.get("/attendances", getAttendance);
+app.get("/workersattendance/:id", workersAttendance);
 
 // running Server
 server.listen(5000, () => {
