@@ -5,7 +5,10 @@ const http = require("http");
 const server = http.createServer(app);
 
 const cors = require("cors");
+
 const bodyParser = require("body-parser");
+app.use(bodyParser.json());
+app.use(bodyParser.urlencoded({ extended: true }));
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 app.use(express.json());
@@ -13,6 +16,7 @@ app.use(cors());
 const path = require("path");
 const db = require("./dbInit");
 const { getAttendance, workersAttendance } = require("./attendances");
+const { log } = require("console");
 
 // connections
 
@@ -1162,19 +1166,19 @@ app.get("/attendance/today", (req, res) => {
 
 app.put("/attendance/:id", (req, res) => {
   const { id } = req.params;
-  const { worker_id, site_name } = req.body;
+  const { worker_id, date, site_name } = req.body;
 
   // Log incoming data for debugging
   console.log("Received data:", { id, worker_id, site_name });
 
   // Validate the data before updating
-  if (!worker_id || !site_name) {
+  if (!worker_id || !date || !site_name) {
     console.log("Validation failed: Missing fields");
     return res.status(400).json({ message: "Missing fields" });
   }
 
-  const sql = `UPDATE attendance SET worker_id = ?, site_name = ? WHERE id = ?`;
-  db.query(sql, [worker_id, site_name, id], (err, result) => {
+  const sql = `UPDATE attendance SET worker_id = ?,date = ?, site_name = ?  WHERE id = ?`;
+  db.query(sql, [worker_id, date, site_name, id], (err, result) => {
     if (err) {
       console.error("Error during update:", err);
       return res
@@ -1418,14 +1422,25 @@ app.post("/workers", fileUpload18.single("file"), (req, res) => {
     email,
     date_joined,
     site,
+    supervisor,
   } = req.body;
   const sql =
-    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined, site) VALUES (?, ?, ?,?, ?,?,?,?)";
+    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined, site,supervisor) VALUES (?, ?, ?,?, ?,?,?,?,?)";
   const file = req?.file?.filename ?? image;
   //console.log(file);
   db.query(
     sql,
-    [file, worker_id, name, date_of_birth, contact, email, date_joined, site],
+    [
+      file,
+      worker_id,
+      name,
+      date_of_birth,
+      contact,
+      email,
+      date_joined,
+      site,
+      supervisor,
+    ],
     (err, data) => {
       if (data) {
         return res.send(data);
@@ -1441,6 +1456,7 @@ app.get("/workers", (req, res) => {
   const sql = "select * from workers";
   db.query(sql, (err, data) => {
     if (data) {
+      console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
@@ -1463,6 +1479,8 @@ app.get("/workers/:id", (req, res) => {
   sql = "select * from workers where id = ?";
   db.query(sql, [id], (err, data) => {
     if (data) {
+      console.log(data);
+
       return res.send(data[0]);
     }
     res.send(err);
@@ -1497,6 +1515,7 @@ app.put("/workers/:id", fileUpload19.single("file"), (req, res) => {
     email,
     date_joined,
     site,
+    supervisor,
   } = req.body;
   const file = req?.file?.filename ?? image;
   console.log(file);
@@ -1509,7 +1528,8 @@ SET
     contact = ?,
     email = ?,
     date_joined = ?,
-    site = ?
+    site = ?,
+    supervisor = ?
 WHERE id = ?`;
   db.query(
     sql,
@@ -1522,6 +1542,7 @@ WHERE id = ?`;
       email,
       date_joined,
       site,
+      supervisor,
       id,
     ],
     (err, data) => {
@@ -1619,6 +1640,28 @@ app.get("/sumclients", (req, res) => {
   });
 });
 
+///////////////////// supervisor
+// Check Supervisor Endpoint
+app.post("/check-supervisor", (req, res) => {
+  const { email } = req.body;
+  // Ensure the connection is available
+  // if (!connection) {
+  //   return res
+  //     .status(500)
+  //     .json({ error: "Database connection not established" });
+  // } // Now perform the query
+  const query = "SELECT supervisor FROM workers WHERE email = ?";
+  db.query(query, [email], (err, results) => {
+    if (err) {
+      return res.status(500).json({ error: "Database error" });
+    }
+    if (results.length > 0 && results[0].supervisor === 1) {
+      return res.json({ isSupervisor: true });
+    } else {
+      return res.json({ isSupervisor: false });
+    }
+  });
+});
 /////////////// //////////// attendances
 
 // Fetch attendance data by year and month
