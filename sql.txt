@@ -1,0 +1,16 @@
+create table attendance(id int not null primary key auto_increment, 
+worker_id varchar(255),  email varchar (100) null);
+alter table attendance add date datetime default current_timestamp not null after worker_id;
+alter table attendance add site_name varchar (50) after date;
+select * from attendance;
+alter table attendance rename column date to date_created;
+alter table attendance add column date date after worker_id;
+
+alter table attendance modify  date varchar(20);
+
+insert into attendance (date) Values("2024-11-08");
+update  attendance set date = "2024-11-08" where id = 1;
+update  attendance set date = "2024-11-08" where id = 2;
+update  attendance set date = "2024-11-08" where id = 3;
+update  attendance set date = "2024-11-09" where id = 4;
+update  attendance set date = "2024-11-09" where id = 5;
