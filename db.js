@@ -1424,22 +1424,26 @@ app.post("/workers", fileUpload18.single("file"), (req, res) => {
     site,
     supervisor,
   } = req.body;
+  console.log(supervisor);
+
   const sql =
-    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined, site,supervisor) VALUES (?, ?, ?,?, ?,?,?,?,?)";
+    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined, site,supervisor) VALUES (?)";
   const file = req?.file?.filename ?? image;
   //console.log(file);
   db.query(
     sql,
     [
-      file,
-      worker_id,
-      name,
-      date_of_birth,
-      contact,
-      email,
-      date_joined,
-      site,
-      supervisor,
+      [
+        file,
+        worker_id,
+        name,
+        date_of_birth,
+        contact,
+        email,
+        date_joined,
+        site,
+        Number(supervisor),
+      ],
     ],
     (err, data) => {
       if (data) {
@@ -1571,7 +1575,7 @@ from dual`;
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    return res.send(err);
   });
 });
 
@@ -1587,7 +1591,7 @@ on lower(trim(w.email)) =  u.email;`;
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    return res.send(err);
   });
 });
 
@@ -1603,7 +1607,7 @@ on lower(trim(c.email)) =  u.email;`;
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    return res.send(err);
   });
 });
 
@@ -1614,7 +1618,7 @@ app.get("/appusers", (req, res) => {
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    return res.send(err);
   });
 });
 
@@ -1625,7 +1629,9 @@ app.get("/sumworkers", (req, res) => {
     if (data) {
       return res.send(data);
     }
-    return res.sene(err);
+    console.log(err);
+
+    return res.send(err);
   });
 });
 

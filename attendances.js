@@ -1,7 +1,8 @@
 const db = require("./dbInit");
 let sql;
-const getAttendance = (req, res) => {
+const getAttendance = async (req, res) => {
   const { year, month } = req.query;
+  console.log(year, month);
 
   if (!year || !month) {
     return res.status(400).json({ message: "Year and Month are required" });
@@ -12,18 +13,40 @@ const getAttendance = (req, res) => {
 
   // Query to get attendance data for the given year and month
   const query = `
-    SELECT worker_id, DATE(date) as date, site_name, email FROM attendance
-    WHERE YEAR(date) = ? AND MONTH(date) = ?
+    select * from workers
   `;
 
-  db.query(query, [year, formattedMonth], (err, results) => {
+  db.query(query, [year], async (err, results) => {
     if (err) {
       console.error("Error fetching attendance data:", err);
       return res.status(500).json({ message: "Error fetching data" });
     }
+    const attendances = [];
+    results.forEach((user) => {
+      db.query(
+        `select * from attendance where worker_id=? and YEAR(date) =?`,
+        [user.id, year],
+        (err, data) => {
+          if (err) {
+            console.log(err);
+            attendances.push({
+              ...user,
+              attendances: null,
+            });
+            return;
+          }
+          console.log(data);
 
-    // Send the results as JSON
-    res.json(results);
+          attendances.push({
+            ...user,
+            attendances: data,
+          });
+          if (attendances.length == results.length) {
+            res.send(attendances);
+          }
+        }
+      );
+    });
   });
 };
 function workersAttendance(req, res) {
