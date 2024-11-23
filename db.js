@@ -4,6 +4,11 @@ const multer = require("multer");
 const http = require("http");
 const server = http.createServer(app);
 
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const dotenv = require("dotenv");
+require("dotenv").config();
+
 const cors = require("cors");
 
 const bodyParser = require("body-parser");
@@ -13,7 +18,10 @@ const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 app.use(express.json());
 app.use(cors());
+
 const path = require("path");
+const fs = require("fs");
+
 const db = require("./dbInit");
 const { getAttendance, workersAttendance } = require("./attendances");
 const { log } = require("console");
@@ -71,7 +79,7 @@ app.post("/addservices", fileUpload1.single("file"), (req, res) => {
   //console.log(file);
   db.query(sql, [service_name, file, description, status], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data);
     }
@@ -80,12 +88,58 @@ app.post("/addservices", fileUpload1.single("file"), (req, res) => {
 });
 
 ///  delete a service
+// app.delete("/services/:id", (req, res) => {
+//   const sql = "DELETE FROM services WHERE id = ?";
+//   const id = Number(req.params.id);
+//   db.query(sql, [id], (err, result) => {
+//     if (err) throw err;
+//     res.send(result);
+//   });
+// });
+
 app.delete("/services/:id", (req, res) => {
-  const sql = "DELETE FROM services WHERE id = ?";
   const id = Number(req.params.id);
-  db.query(sql, [id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image path for the service
+  const selectSql = "SELECT image FROM services WHERE id = ?";
+  db.query(selectSql, [id], (err, result) => {
+    if (err) {
+      console.error("Failed to retrieve image path:", err);
+      res.status(500).send({ error: "Failed to retrieve image path" });
+      return;
+    }
+
+    if (result.length === 0) {
+      res.status(404).send({ error: "Service not found" });
+      return;
+    }
+
+    const imagePath = path.join(__dirname, "uploads", result[0].image);
+
+    // Step 2: Delete the image file
+    fs.unlink(imagePath, (unlinkErr) => {
+      if (unlinkErr) {
+        console.error("Failed to delete image file:", unlinkErr);
+        if (unlinkErr.code !== "ENOENT") {
+          res.status(500).send({ error: "Failed to delete image file" });
+          return;
+        }
+      } else {
+        // console.log("Image file deleted successfully:", imagePath);
+      }
+
+      // Step 3: Delete the service from the database
+      const deleteSql = "DELETE FROM services WHERE id = ?";
+      db.query(deleteSql, [id], (deleteErr, deleteResult) => {
+        if (deleteErr) {
+          console.error("Failed to delete service:", deleteErr);
+          res.status(500).send({ error: "Failed to delete service" });
+          return;
+        }
+
+        res.send({ message: "Service and image deleted successfully" });
+      });
+    });
   });
 });
 
@@ -121,7 +175,7 @@ app.put("/services/:id", fileUpload.single("file"), (req, res) => {
   const id = req.params.id;
   const { description, image, service_name, status, featured } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE services
 SET service_name = ?,
     image = ?,
@@ -136,7 +190,7 @@ WHERE id = ?`;
       if (data) {
         return res.sendStatus(201);
       }
-      console.log(err);
+      // console.log(err);
 
       res.sendStatus(500);
     }
@@ -175,7 +229,7 @@ app.post("/notesboard", fileUpload2.single("file"), (req, res) => {
   //console.log(file);
   db.query(sql, [file, title, description, added_by], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data);
     }
@@ -189,23 +243,54 @@ app.get("/notesboard", (req, res) => {
   const sql = "select * from notesboard";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete a note
+//  delete a note
+// Delete a note along with its image
 app.delete("/notesboard/:notes_id", (req, res) => {
-  const sql = "DELETE FROM notesboard WHERE notes_id = ?";
   const notes_id = Number(req.params.notes_id);
-  db.query(sql, [notes_id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM notesboard WHERE notes_id = ?";
+  db.query(selectSql, [notes_id], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching note image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this note." });
+    }
+
+    // Step 2: Delete the database entry
+    const deleteSql = "DELETE FROM notesboard WHERE notes_id = ?";
+    db.query(deleteSql, [notes_id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error("Error deleting note:", deleteErr);
+        return res.status(500).send({ error: "Error deleting note." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "Note and image deleted successfully." });
+      });
+    });
   });
 });
-
 /// get a single notesboard datails
 app.get("/notesboard/:notes_id", (req, res) => {
   const { notes_id } = req.params;
@@ -239,7 +324,7 @@ app.put("/notesboard/:notes_id", fileUpload3.single("file"), (req, res) => {
   const notes_id = req.params.notes_id;
   const { image, title, description, added_by } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE notesboard
 SET 
     image = ?,
@@ -251,7 +336,7 @@ WHERE notes_id = ?`;
     if (data) {
       return res.sendStatus(201);
     }
-    console.log(err);
+    // console.log(err);
 
     res.sendStatus(500);
   });
@@ -289,7 +374,7 @@ app.post("/events", fileUpload4.single("file"), (req, res) => {
     [file, title, description, added_by, date_to_occur],
     (err, data) => {
       if (data) {
-        console.log(data);
+        // console.log(data);
 
         return res.send(data);
       }
@@ -304,20 +389,51 @@ app.get("/events", (req, res) => {
   const sql = "select * from events";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete an event
+// Delete an event along with its image
 app.delete("/events/:event_id", (req, res) => {
-  const sql = "DELETE FROM events WHERE event_id = ?";
   const event_id = Number(req.params.event_id);
-  db.query(sql, [event_id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM events WHERE event_id = ?";
+  db.query(selectSql, [event_id], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching event image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this event." });
+    }
+
+    // Step 2: Delete the event record from the database
+    const deleteSql = "DELETE FROM events WHERE event_id = ?";
+    db.query(deleteSql, [event_id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error("Error deleting event:", deleteErr);
+        return res.status(500).send({ error: "Error deleting event." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "Event and image deleted successfully." });
+      });
+    });
   });
 });
 
@@ -354,7 +470,7 @@ app.put("/events/:event_id", fileUpload5.single("file"), (req, res) => {
   const event_id = req.params.event_id;
   const { image, title, description, added_by, date_to_occur } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE events
 SET 
     image = ?,
@@ -370,7 +486,7 @@ WHERE event_id = ?`;
       if (data) {
         return res.sendStatus(201);
       }
-      console.log(err);
+      // console.log(err);
 
       res.sendStatus(500);
     }
@@ -407,7 +523,7 @@ app.post("/news", fileUpload6.single("file"), (req, res) => {
   //console.log(file);
   db.query(sql, [file, title, description, added_by], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data);
     }
@@ -421,20 +537,51 @@ app.get("/news", (req, res) => {
   const sql = "select * from news";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete a news
+// Delete a news item along with its image
 app.delete("/news/:news_id", (req, res) => {
-  const sql = "DELETE FROM news WHERE news_id = ?";
   const news_id = Number(req.params.news_id);
-  db.query(sql, [news_id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM news WHERE news_id = ?";
+  db.query(selectSql, [news_id], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching news image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this news item." });
+    }
+
+    // Step 2: Delete the news record from the database
+    const deleteSql = "DELETE FROM news WHERE news_id = ?";
+    db.query(deleteSql, [news_id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error("Error deleting news item:", deleteErr);
+        return res.status(500).send({ error: "Error deleting news item." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "News item and image deleted successfully." });
+      });
+    });
   });
 });
 
@@ -471,7 +618,7 @@ app.put("/news/:news_id", fileUpload7.single("file"), (req, res) => {
   const news_id = req.params.news_id;
   const { image, title, description, added_by } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE news
 SET 
     image = ?,
@@ -519,7 +666,7 @@ app.post("/tips", fileUpload8.single("file"), (req, res) => {
   //console.log(file);
   db.query(sql, [file, title, description, added_by], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data);
     }
@@ -533,20 +680,51 @@ app.get("/tips", (req, res) => {
   const sql = "select * from tips";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      data;
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete a tip
+// Delete a tip item along with its image
 app.delete("/tips/:tips_id", (req, res) => {
-  const sql = "DELETE FROM tips WHERE tips_id = ?";
   const tips_id = Number(req.params.tips_id);
-  db.query(sql, [tips_id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM tips WHERE tips_id = ?";
+  db.query(selectSql, [tips_id], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching tip image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this tip." });
+    }
+
+    // Step 2: Delete the tip record from the database
+    const deleteSql = "DELETE FROM tips WHERE tips_id = ?";
+    db.query(deleteSql, [tips_id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error("Error deleting tip item:", deleteErr);
+        return res.status(500).send({ error: "Error deleting tip item." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "Tip item and image deleted successfully." });
+      });
+    });
   });
 });
 
@@ -583,7 +761,7 @@ app.put("/tips/:tips_id", fileUpload9.single("file"), (req, res) => {
   const tips_id = req.params.tips_id;
   const { image, title, description, added_by } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE tips
 SET 
     image = ?,
@@ -631,7 +809,7 @@ app.post("/adverts", fileUpload10.single("file"), (req, res) => {
   //console.log(file);
   db.query(sql, [file, description, added_by], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data);
     }
@@ -645,23 +823,53 @@ app.get("/adverts", (req, res) => {
   const sql = "select * from adverts";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete an advert
+// Delete an advert item along with its image
 app.delete("/adverts/:advert_id", (req, res) => {
-  const sql = "DELETE FROM adverts WHERE advert_id = ?";
   const advert_id = Number(req.params.advert_id);
-  db.query(sql, [advert_id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM adverts WHERE advert_id = ?";
+  db.query(selectSql, [advert_id], (selectErr, selectResult) => {
+    if (selectErr) {
+      // console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching advert image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this advert." });
+    }
+
+    // Step 2: Delete the advert record from the database
+    const deleteSql = "DELETE FROM adverts WHERE advert_id = ?";
+    db.query(deleteSql, [advert_id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        // console.error("Error deleting advert item:", deleteErr);
+        return res.status(500).send({ error: "Error deleting advert item." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "Advert item and image deleted successfully." });
+      });
+    });
   });
 });
-
 /// get a single advert datails
 app.get("/adverts/:advert_id", (req, res) => {
   const { advert_id } = req.params;
@@ -695,7 +903,7 @@ app.put("/adverts/:advert_id", fileUpload11.single("file"), (req, res) => {
   const advert_id = req.params.advert_id;
   const { image, description, added_by } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE adverts
 SET 
     image = ?,
@@ -706,7 +914,7 @@ WHERE advert_id = ?`;
     if (data) {
       return res.sendStatus(201);
     }
-    console.log(err);
+    // console.log(err);
 
     res.sendStatus(500);
   });
@@ -737,7 +945,7 @@ app.get("/controls", (req, res) => {
   const sql = "select * from controls";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
@@ -779,7 +987,7 @@ WHERE control_id = ?`;
     if (data) {
       return res.sendStatus(201);
     }
-    console.log(err);
+    // console.log(err);
 
     res.sendStatus(500);
   });
@@ -800,87 +1008,191 @@ app.get("/admin", (req, res) => {
 });
 
 // POST request to handle login
+// app.post("/admin", (req, res) => {
+//   const { email, password } = req.body;
+//   const query = "SELECT * FROM admin WHERE email = ? AND password = ?";
+//   db.execute(query, [email, password], (err, results) => {
+//     if (err) {
+//       return res.status(500).json({ message: "Error querying the database" });
+//     }
+//     if (results.length > 0) {
+//       res.json({
+//         success: true,
+//         message: "Login successful",
+//         token: "your-token-here",
+//       });
+//     } else {
+//       res.status(401).json({ success: false, message: "Invalid credentials" });
+//     }
+//   });
+// });
+
+// Login Route
 app.post("/admin", (req, res) => {
   const { email, password } = req.body;
-  const query = "SELECT * FROM admin WHERE email = ? AND password = ?";
-  db.execute(query, [email, password], (err, results) => {
+
+  // Query the database to find the admin by email
+  var sql = "SELECT * FROM admin WHERE email = ?";
+  db.query(sql, [email], (err, data) => {
     if (err) {
-      return res.status(500).json({ message: "Error querying the database" });
+      // console.log(err);
+      return res.status(500).send("Database error");
     }
-    if (results.length > 0) {
-      res.json({
-        success: true,
-        message: "Login successful",
-        token: "your-token-here",
+
+    if (data.length === 0) {
+      // If no user is found with the given email
+      return res.status(401).send("Invalid credentials");
+    }
+
+    // Compare the provided password with the stored hashed password
+    bcrypt.compare(password, data[0].password, (err, isMatch) => {
+      if (err) {
+        console.log(err);
+        return res.status(500).send("Error comparing password");
+      }
+
+      if (!isMatch) {
+        // If the password doesn't match
+        return res.status(401).send("Invalid credentials");
+      }
+
+      // If authentication is successful, generate a JWT token
+      const secretKey = process.env.JWT_SECRET;
+
+      if (!secretKey) {
+        // console.error("JWT_SECRET is missing!");
+        process.exit(1); // Exit the app with an error if the key is missing
+      }
+      const token = jwt.sign(
+        { email: data[0].email, id: data[0].id },
+        secretKey, // Replace with a secure secret key
+        { expiresIn: "1h" } // Token expiration time (optional)
+      );
+
+      // Setting the cookie with a 1 hour expiration
+      res.cookie("token", token, {
+        httpOnly: true, // For security, to prevent JS access
+        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+        maxAge: 3600000, // Cookie expires in 1 hour (1 hour in milliseconds)
+        sameSite: "Strict", // SameSite policy to prevent CSRF
       });
-    } else {
-      res.status(401).json({ success: false, message: "Invalid credentials" });
-    }
+
+      // console.log(data);
+
+      // Return the JWT token to the client
+      res.status(200).json({ message: "Login successful", token: token });
+    });
   });
 });
 
-// Update control rooms
 app.put("/admin", (req, res) => {
-  //const control_id = req.params.id;
   const { email, newpassword } = req.body;
-  var sql = `UPDATE admin
-  SET 
-    email = ?,
-    password = ?  
-`;
-  db.query(sql, [email, newpassword], (err, data) => {
-    if (data) {
-      return res.sendStatus(201);
-    }
-    console.log(err);
 
-    res.sendStatus(500);
+  // Hash the new password using bcrypt
+  bcrypt.hash(newpassword, 10, (err, hashedPassword) => {
+    if (err) {
+      console.log(err);
+      return res.sendStatus(500); // Return an error if hashing fails
+    }
+
+    // Update the admin record with the new email and hashed password
+    var sql = `UPDATE admin
+      SET 
+        email = ?,
+        password = ?  
+      WHERE email = ?`; // Make sure you update based on a unique identifier like email
+
+    db.query(sql, [email, hashedPassword, email], (err, data) => {
+      if (data) {
+        return res.sendStatus(201); // Success
+      }
+      console.log(err);
+      res.sendStatus(500); // Return an error if the update fails
+    });
   });
 });
-
 ///// User Create account on App
 
-app.post("/users", (req, res) => {
+// const bcrypt = require("bcrypt");
+
+// Create account endpoint
+app.post("/users", async (req, res) => {
   const { name, email, contact, password } = req.body;
+
   // Check if the user already exists
   const checkQuery = "SELECT * FROM users WHERE email = ?";
-  db.query(checkQuery, [email], (err, results) => {
+  db.query(checkQuery, [email], async (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Error querying the database" });
     }
     if (results.length > 0) {
       return res.status(409).json({ message: "User already exists" });
-    } // If user doesn't exist, create a new user
-    const insertQuery =
-      "INSERT INTO users (name, email,contact, password) VALUES (?, ?, ?, ?)";
-    db.query(insertQuery, [name, email, contact, password], (err, data) => {
-      if (data) {
-        // console.log(data);
-        return res.send(data);
-      }
-      return res.status(500).send(err);
-    });
+    }
+
+    try {
+      // Hash the password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Insert the new user into the database
+      const insertQuery =
+        "INSERT INTO users (name, email, contact, password) VALUES (?, ?, ?, ?)";
+      db.query(
+        insertQuery,
+        [name, email, contact, hashedPassword],
+        (err, data) => {
+          if (err) {
+            return res.status(500).json({ message: "Error saving the user" });
+          }
+          return res
+            .status(201)
+            .json({ message: "User created successfully", data });
+        }
+      );
+    } catch (hashError) {
+      return res.status(500).json({ message: "Error hashing the password" });
+    }
   });
 });
 
 // Login endpoint
 app.post("/loginuser", (req, res) => {
   const { email, password } = req.body;
-  const sql = "SELECT * FROM users WHERE email = ? AND password = ?";
-  db.query(sql, [email, password], (err, results) => {
+
+  // Query to find the user by email
+  const sql = "SELECT * FROM users WHERE email = ?";
+  db.query(sql, [email], async (err, results) => {
     if (err) {
       return res.status(500).json({ message: "Error querying the database" });
     }
-    if (results.length > 0) {
-      // Login successful
-      res.json({
-        success: true,
-        message: "Login successful",
-        token: "your-token-here",
-      });
-    } else {
-      // Invalid credentials
-      res.status(401).json({ success: false, message: "Invalid credentials" });
+
+    if (results.length === 0) {
+      // User not found
+      return res
+        .status(401)
+        .json({ success: false, message: "Invalid credentials" });
+    }
+
+    const user = results[0];
+
+    try {
+      // Compare the provided password with the stored hashed password
+      const isMatch = await bcrypt.compare(password, user.password);
+
+      if (isMatch) {
+        // Passwords match - Login successful
+        return res.json({
+          success: true,
+          message: "Login successful",
+          token: "your-token-here", // Replace with actual JWT
+        });
+      } else {
+        // Passwords don't match
+        return res
+          .status(401)
+          .json({ success: false, message: "Invalid credentials" });
+      }
+    } catch (compareError) {
+      return res.status(500).json({ message: "Error verifying the password" });
     }
   });
 });
@@ -1000,7 +1312,7 @@ const transporter = nodemailer.createTransport({
   service: "gmail",
   auth: {
     user: "kaitalemuhammad1@gmail.com",
-    // Replace with your email
+
     pass: "tuaf xxyq zhfa rluj",
     // Replace with your email password
   },
@@ -1053,7 +1365,7 @@ app.post("/forgotpassword", (req, res) => {
               console.log(error);
               return res.status(500).send("Error sending email");
             } else {
-              console.log("Email sent: " + info.response);
+              // console.log("Email sent: " + info.response);
               res.status(200).send("Email sent successfully");
             }
           });
@@ -1112,7 +1424,7 @@ app.get("/allusers", (req, res) => {
 /// ///////////////// Attendance Registration ============
 // id, worker_id, date, site_name, email
 app.post("/attendance", (req, res) => {
-  const { worker_id, date, site_name } = req.body;
+  const { worker_id, date, site_name, registered_by } = req.body;
 
   // Check if the necessary fields are provided
   if (!worker_id || !date || !site_name) {
@@ -1123,9 +1435,9 @@ app.post("/attendance", (req, res) => {
 
   // SQL query to insert data into the attendance table
   const sql =
-    "INSERT INTO attendance (worker_id,date, site_name) VALUES (?, ?,?)";
+    "INSERT INTO attendance (worker_id,date, site_name,registered_by) VALUES (?,?, ?,?)";
 
-  db.query(sql, [worker_id, date, site_name], (err, data) => {
+  db.query(sql, [worker_id, date, site_name, registered_by], (err, data) => {
     if (err) {
       console.error("Error inserting data:", err);
       return res
@@ -1133,10 +1445,56 @@ app.post("/attendance", (req, res) => {
         .json({ message: "Failed to register attendance", error: err });
     }
 
-    console.log("Data inserted:", data);
+    // console.log("Data inserted:", data);
     return res
       .status(201)
       .json({ message: "Attendance registered successfully", data });
+  });
+});
+
+app.post("/attendance2", (req, res) => {
+  const { worker_id, date, registered_by } = req.body;
+
+  // Check if the necessary fields are provided
+  if (!worker_id || !date) {
+    return res.status(400).json({ message: "Worker ID and Date are required" });
+  }
+
+  // SQL query to check if attendance already exists for the worker on the given date
+  const checkSql = "SELECT * FROM attendance WHERE worker_id = ? AND date = ?";
+
+  db.query(checkSql, [worker_id, date], (checkErr, checkResult) => {
+    if (checkErr) {
+      console.error("Error checking attendance:", checkErr);
+      return res
+        .status(500)
+        .json({ message: "Error checking attendance", error: checkErr });
+    }
+
+    // If the attendance already exists, return an error message
+    if (checkResult.length > 0) {
+      return res.status(409).json({
+        message: "Attendance already recorded for this worker on this date.",
+      });
+    }
+
+    // SQL query to insert data into the attendance table
+    const insertSql =
+      "INSERT INTO attendance (worker_id, date,registered_by) VALUES (?,?, ?)";
+
+    db.query(insertSql, [worker_id, date, registered_by], (err, data) => {
+      if (err) {
+        console.error("Error inserting data:", err);
+        return res
+          .status(500)
+          .json({ message: "Failed to register attendance", error: err });
+      }
+
+      console.log("Data inserted:", data);
+      return res
+        .status(201)
+        .json({ message: "Attendance registered successfully", data });
+    });
   });
 });
 
@@ -1144,7 +1502,8 @@ app.get("/attendance/today", (req, res) => {
   const sql = `
     SELECT id, worker_id, site_name, date 
     FROM attendance 
-    WHERE DATE(CONVERT_TZ(date, '+00:00', @@session.time_zone))  = CURDATE() order by date DESC`;
+    WHERE DATE(CONVERT_TZ(date, '+00:00', @@session.time_zone))  = CURDATE() order by date DESC
+    WHERE registered_by = ?`;
 
   db.query(sql, (err, data) => {
     if (err) {
@@ -1169,7 +1528,7 @@ app.put("/attendance/:id", (req, res) => {
   const { worker_id, date, site_name } = req.body;
 
   // Log incoming data for debugging
-  console.log("Received data:", { id, worker_id, site_name });
+  // console.log("Received data:", { id, worker_id, site_name });
 
   // Validate the data before updating
   if (!worker_id || !date || !site_name) {
@@ -1421,34 +1780,33 @@ app.post("/workers", fileUpload18.single("file"), (req, res) => {
     contact,
     email,
     date_joined,
+    title,
     site,
     supervisor,
   } = req.body;
-  console.log(supervisor);
-
   const sql =
-    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined, site,supervisor) VALUES (?)";
+    "INSERT INTO workers (image, worker_id, name, date_of_birth, contact, email, date_joined,title, site,supervisor) VALUES (?,?, ?, ?,?, ?,?,?,?,?)";
   const file = req?.file?.filename ?? image;
   //console.log(file);
   db.query(
     sql,
     [
-      [
-        file,
-        worker_id,
-        name,
-        date_of_birth,
-        contact,
-        email,
-        date_joined,
-        site,
-        Number(supervisor),
-      ],
+      file,
+      worker_id,
+      name,
+      date_of_birth,
+      contact,
+      email,
+      date_joined,
+      title,
+      site,
+      supervisor,
     ],
     (err, data) => {
       if (data) {
         return res.send(data);
       }
+      console.log(err);
       return res.status(500).send(err);
     }
   );
@@ -1460,20 +1818,51 @@ app.get("/workers", (req, res) => {
   const sql = "select * from workers";
   db.query(sql, (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
       return res.send(data);
     }
     return res.status(500).send(err);
   });
 });
 
-///  delete a worker
+// Delete a worker along with their image
 app.delete("/workers/:id", (req, res) => {
-  const sql = "DELETE FROM workers WHERE id = ?";
   const id = Number(req.params.id);
-  db.query(sql, [id], (err, result) => {
-    if (err) throw err;
-    res.send(result);
+
+  // Step 1: Retrieve the image filename from the database
+  const selectSql = "SELECT image FROM workers WHERE id = ?";
+  db.query(selectSql, [id], (selectErr, selectResult) => {
+    if (selectErr) {
+      console.error("Error fetching image filename:", selectErr);
+      return res.status(500).send({ error: "Error fetching worker image." });
+    }
+
+    const imageFile = selectResult[0]?.image;
+    if (!imageFile) {
+      return res
+        .status(404)
+        .send({ error: "Image file not found for this worker." });
+    }
+
+    // Step 2: Delete the worker record from the database
+    const deleteSql = "DELETE FROM workers WHERE id = ?";
+    db.query(deleteSql, [id], (deleteErr, deleteResult) => {
+      if (deleteErr) {
+        console.error("Error deleting worker:", deleteErr);
+        return res.status(500).send({ error: "Error deleting worker." });
+      }
+
+      // Step 3: Delete the image file from the uploads folder
+      const filePath = path.join(__dirname, "uploads", imageFile);
+      fs.unlink(filePath, (fsErr) => {
+        if (fsErr) {
+          console.error("Error deleting image file:", fsErr);
+          return res.status(500).send({ error: "Error deleting image file." });
+        }
+
+        res.send({ message: "Worker and image deleted successfully." });
+      });
+    });
   });
 });
 
@@ -1483,7 +1872,7 @@ app.get("/workers/:id", (req, res) => {
   sql = "select * from workers where id = ?";
   db.query(sql, [id], (err, data) => {
     if (data) {
-      console.log(data);
+      // console.log(data);
 
       return res.send(data[0]);
     }
@@ -1518,11 +1907,12 @@ app.put("/workers/:id", fileUpload19.single("file"), (req, res) => {
     contact,
     email,
     date_joined,
+    title,
     site,
     supervisor,
   } = req.body;
   const file = req?.file?.filename ?? image;
-  console.log(file);
+  // console.log(file);
   var sql = `UPDATE workers
 SET 
     image = ?,
@@ -1532,6 +1922,7 @@ SET
     contact = ?,
     email = ?,
     date_joined = ?,
+    title = ?,
     site = ?,
     supervisor = ?
 WHERE id = ?`;
@@ -1545,6 +1936,7 @@ WHERE id = ?`;
       contact,
       email,
       date_joined,
+      title,
       site,
       supervisor,
       id,
@@ -1629,8 +2021,6 @@ app.get("/sumworkers", (req, res) => {
     if (data) {
       return res.send(data);
     }
-    console.log(err);
-
     return res.send(err);
   });
 });
@@ -1650,12 +2040,7 @@ app.get("/sumclients", (req, res) => {
 // Check Supervisor Endpoint
 app.post("/check-supervisor", (req, res) => {
   const { email } = req.body;
-  // Ensure the connection is available
-  // if (!connection) {
-  //   return res
-  //     .status(500)
-  //     .json({ error: "Database connection not established" });
-  // } // Now perform the query
+
   const query = "SELECT supervisor FROM workers WHERE email = ?";
   db.query(query, [email], (err, results) => {
     if (err) {
@@ -1668,6 +2053,55 @@ app.post("/check-supervisor", (req, res) => {
     }
   });
 });
+
+// Check if in workers
+app.post("/check-worker", (req, res) => {
+  const { email } = req.body;
+
+  const query = "SELECT email FROM workers WHERE trim(email) = ?";
+  db.query(query, [email], (err, data) => {
+    if (data) {
+      return res.send(data);
+    }
+    return res.status(500).send(err);
+  });
+});
+
+app.get("/verify", (req, res) => {
+  const { email } = req.query; // Fetch email from query parameters
+  if (!email) {
+    return res.status(400).send({ message: "Email is required" }); // Validate input
+  }
+
+  const query =
+    "SELECT image, worker_id, name, title FROM workers WHERE trim(email) = ?";
+  db.query(query, [email], (err, data) => {
+    if (err) {
+      console.error("Database error:", err); // Log the error
+      return res.status(500).send({ message: "Internal Server Error" });
+    }
+    if (data.length === 0) {
+      return res.status(404).send({ message: "Worker not found" });
+    }
+    return res.send(data[0]); // Return a single worker's data
+  });
+});
+
+app.get("/verify_worker", (req, res) => {
+  const { worker_id } = req.query;
+
+  const query = "SELECT * FROM workers WHERE worker_id = ?";
+  db.query(query, [worker_id], (err, data) => {
+    if (err) {
+      return res.status(500).send({ verified: false, message: "Server error" });
+    }
+    if (data.length === 0) {
+      return res.status(404).send({ verified: false, message: "Not found" });
+    }
+    return res.send({ verified: true });
+  });
+});
+
 /////////////// //////////// attendances
 
 // Fetch attendance data by year and month

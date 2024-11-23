@@ -1,9 +1,11 @@
 const mysql = require("mysql2");
+// const mysql = require("mysql2/promise");
 const db = mysql.createConnection({
   host: "localhost",
-  password: "okronie",
+  password: "17896",
   database: "demo",
   user: "root",
+  port: 3308,
 });
 
 db.connect((err) => {
