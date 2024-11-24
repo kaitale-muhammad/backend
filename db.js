@@ -10,15 +10,19 @@ const dotenv = require("dotenv");
 require("dotenv").config();
 
 const cors = require('cors');
+// app.use(cors());
+app.options('*', cors());
 
-// Allow requests from the specific frontend origin
-app.use(
-  cors({
-    origin: 'https://admin-psl.vercel.app', // Allow this origin
-    methods: ['GET', 'POST'], // Allowed HTTP methods
-    credentials: true, // Allow cookies and credentials
-  })
-);
+
+const corsOptions = {
+  origin: 'https://admin-psl.vercel.app',
+  methods: ['GET', 'POST', 'OPTIONS'], // Include OPTIONS
+  credentials: true, // Allow cookies/credentials
+  allowedHeaders: ['Content-Type', 'Authorization'], // Allow necessary headers
+};
+
+app.use(cors(corsOptions));
+
 
 
 const bodyParser = require("body-parser");
@@ -27,7 +31,7 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 app.use(express.json());
-app.use(cors());
+
 
 const path = require("path");
 const fs = require("fs");
@@ -2112,6 +2116,10 @@ app.get("/attendances", getAttendance);
 app.get("/workersattendance/:id", workersAttendance);
 
 // running Server
-server.listen(5000, () => {
-  console.log("listening");
+const PORT = process.env.PORT || 5000;
+server.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
+
+
+
