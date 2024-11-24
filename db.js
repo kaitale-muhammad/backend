@@ -1075,14 +1075,14 @@ app.post("/admin", (req, res) => {
         secure: process.env.NODE_ENV === "production", // Use secure cookies in production
         maxAge: 3600000, // Cookie expires in 1 hour (1 hour in milliseconds)
         sameSite: "Strict", // SameSite policy to prevent CSRF
-      // });
+       });
 
       // console.log(data);
 
       // Return the JWT token to the client
       res.status(200).json({ message: "Login successful", token: token });
     });
-  });
+  // });
 });
 
 app.put("/admin", (req, res) => {
