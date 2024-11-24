@@ -1045,16 +1045,16 @@ app.post("/admin", (req, res) => {
     }
 
     // Compare the provided password with the stored hashed password
-    bcrypt.compare(password, data[0].password, (err, isMatch) => {
+    // bcrypt.compare(password, data[0].password, (err, isMatch) => {
       if (err) {
         console.log(err);
-        return res.status(500).send("Error comparing password");
+        return res.status(500).send("Error Inalid password");
       }
 
-      if (!isMatch) {
-        // If the password doesn't match
-        return res.status(401).send("Invalid credentials");
-      }
+      // if (!isMatch) {
+      //   // If the password doesn't match
+      //   return res.status(401).send("Invalid credentials");
+      // }
 
       // If authentication is successful, generate a JWT token
       const secretKey = process.env.JWT_SECRET;
@@ -1075,7 +1075,7 @@ app.post("/admin", (req, res) => {
         secure: process.env.NODE_ENV === "production", // Use secure cookies in production
         maxAge: 3600000, // Cookie expires in 1 hour (1 hour in milliseconds)
         sameSite: "Strict", // SameSite policy to prevent CSRF
-      });
+      // });
 
       // console.log(data);
 
@@ -1089,7 +1089,7 @@ app.put("/admin", (req, res) => {
   const { email, newpassword } = req.body;
 
   // Hash the new password using bcrypt
-  bcrypt.hash(newpassword, 10, (err, hashedPassword) => {
+  // bcrypt.hash(newpassword, 10, (err, hashedPassword) => {
     if (err) {
       console.log(err);
       return res.sendStatus(500); // Return an error if hashing fails
@@ -1102,14 +1102,14 @@ app.put("/admin", (req, res) => {
         password = ?  
       WHERE email = ?`; // Make sure you update based on a unique identifier like email
 
-    db.query(sql, [email, hashedPassword, email], (err, data) => {
+    db.query(sql, [email, newpassword, email], (err, data) => {
       if (data) {
         return res.sendStatus(201); // Success
       }
       console.log(err);
       res.sendStatus(500); // Return an error if the update fails
     });
-  });
+  // });
 });
 ///// User Create account on App
 
