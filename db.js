@@ -9,7 +9,17 @@ const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 require("dotenv").config();
 
-const cors = require("cors");
+const cors = require('cors');
+
+// Allow requests from the specific frontend origin
+app.use(
+  cors({
+    origin: 'https://admin-psl.vercel.app', // Allow this origin
+    methods: ['GET', 'POST'], // Allowed HTTP methods
+    credentials: true, // Allow cookies and credentials
+  })
+);
+
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.json());
