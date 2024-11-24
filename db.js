@@ -1046,43 +1046,42 @@ app.post("/admin", (req, res) => {
 
     // Compare the provided password with the stored hashed password
     // bcrypt.compare(password, data[0].password, (err, isMatch) => {
-      if (err) {
-        console.log(err);
-        return res.status(500).send("Error Inalid password");
-      }
+    if (err) {
+      console.log(err);
+      return res.status(500).send("Error comparing password");
+    }
 
-      // if (!isMatch) {
-      //   // If the password doesn't match
-      //   return res.status(401).send("Invalid credentials");
-      // }
+    // if (!isMatch) {
+    //   // If the password doesn't match
+    //   return res.status(401).send("Invalid credentials");
+    // }
 
-      // If authentication is successful, generate a JWT token
-      const secretKey = process.env.JWT_SECRET;
+    // If authentication is successful, generate a JWT token
+    const secretKey = process.env.JWT_SECRET;
 
-      if (!secretKey) {
-        // console.error("JWT_SECRET is missing!");
-        process.exit(1); // Exit the app with an error if the key is missing
-      }
-      const token = jwt.sign(
-        { email: data[0].email, id: data[0].id },
-        secretKey, // Replace with a secure secret key
-        { expiresIn: "1h" } // Token expiration time (optional)
-      );
+    if (!secretKey) {
+      // console.error("JWT_SECRET is missing!");
+      process.exit(1); // Exit the app with an error if the key is missing
+    }
+    const token = jwt.sign(
+      { email: data[0].email, id: data[0].id },
+      secretKey, // Replace with a secure secret key
+      { expiresIn: "1h" } // Token expiration time (optional)
+    );
 
-      // Setting the cookie with a 1 hour expiration
-      res.cookie("token", token, {
-        httpOnly: true, // For security, to prevent JS access
-        secure: process.env.NODE_ENV === "production", // Use secure cookies in production
-        maxAge: 3600000, // Cookie expires in 1 hour (1 hour in milliseconds)
-        sameSite: "Strict", // SameSite policy to prevent CSRF
-       });
-
-      // console.log(data);
-
-      // Return the JWT token to the client
-      res.status(200).json({ message: "Login successful", token: token });
+    // Setting the cookie with a 1 hour expiration
+    res.cookie("token", token, {
+      httpOnly: true, // For security, to prevent JS access
+      secure: process.env.NODE_ENV === "production", // Use secure cookies in production
+      maxAge: 3600000, // Cookie expires in 1 hour (1 hour in milliseconds)
+      sameSite: "Strict", // SameSite policy to prevent CSRF
     });
-  // });
+
+    // console.log(data);
+
+    // Return the JWT token to the client
+    res.status(200).json({ message: "Login successful", token: token });
+  });
 });
 
 app.put("/admin", (req, res) => {
