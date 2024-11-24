@@ -1038,7 +1038,7 @@ app.get("/admin", (req, res) => {
 // });
 
 // Login Route
-app.post("/admin", (req, res) => {
+app.post("/adminlogin", (req, res) => {
   const { email, password } = req.body;
 
   // Query the database to find the admin by email
