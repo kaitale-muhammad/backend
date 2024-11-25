@@ -1087,7 +1087,10 @@ app.post("/adminlogin", (req, res) => {
     });
 
     // Return the JWT token to the client
-    res.status(200).json({ message: "Login successful", token });
+    // res.status(200).json({ message: "Login successful", token });
+    console.log("About to send response");
+    return res.status(200).json({ message: "Login successful", token: token });
+
   });
 });
 
