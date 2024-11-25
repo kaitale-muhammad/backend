@@ -1042,7 +1042,14 @@ app.get("/admin", (req, res) => {
 // });
 
 // Login Route
-app.options('/adminlogin', cors());
+app.options('/adminlogin', (req, res) => {
+  res.header('Access-Control-Allow-Origin', 'https://admin-psl.vercel.app');
+  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.sendStatus(200); // Respond OK to preflight
+});
+
 app.post('/adminlogin', cors(), (req, res) => {
   const { email, password } = req.body;
 
