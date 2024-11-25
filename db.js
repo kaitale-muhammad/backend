@@ -14,16 +14,15 @@ const cors = require('cors');
 
 
 
-app.use(
-  cors({
-    origin: 'https://admin-psl.vercel.app', // Replace with your client URL
-    methods: ['GET', 'POST', 'OPTIONS'], // Allow methods
-    allowedHeaders: ['Content-Type', 'Authorization'], // Allow headers
-    credentials: true, // Required to allow cookies
-  })
-);
+// Configure CORS
+const corsOptions = {
+  origin: 'https://admin-psl.vercel.app', // Allow only your frontend domain
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+  credentials: true, // Allow cookies or authorization headers
+};
 
-app.options('*', cors());
+// Apply CORS middleware
+app.use(cors(corsOptions));
 
 
 
