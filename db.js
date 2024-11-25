@@ -11,17 +11,19 @@ require("dotenv").config();
 
 const cors = require('cors');
 // app.use(cors());
+
+
+
+app.use(
+  cors({
+    origin: 'https://admin-psl.vercel.app', // Replace with your client URL
+    methods: ['GET', 'POST', 'OPTIONS'], // Allow methods
+    allowedHeaders: ['Content-Type', 'Authorization'], // Allow headers
+    credentials: true, // Required to allow cookies
+  })
+);
+
 app.options('*', cors());
-
-
-const corsOptions = {
-  origin: 'https://admin-psl.vercel.app',
-  methods: ['GET', 'POST', 'OPTIONS'], // Include OPTIONS
-  credentials: true, // Allow cookies/credentials
-  allowedHeaders: ['Content-Type', 'Authorization'], // Allow necessary headers
-};
-
-app.use(cors(corsOptions));
 
 
 
@@ -1097,7 +1099,8 @@ app.post('/adminlogin', cors(), (req, res) => {
     // Return the JWT token to the client
     // res.status(200).json({ message: "Login successful", token });
     console.log("About to send response");
-    return res.status(200).json({ message: "Login successful", token: token });
+    //return res.status(200).json({ message: "Login successful", token: token });
+      res.status(200).json({ message: 'Login successful', token: 'test_token' });
 
   });
 });
