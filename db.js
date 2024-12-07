@@ -16,7 +16,7 @@ const cors = require('cors');
 
 // Configure CORS
 const corsOptions = {
-  origin: 'https://admin-psl.vercel.app', // Allow only your frontend domain
+  origin: 'https://admin-black-two.vercel.app', // Allow only your frontend domain
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
   credentials: true, // Allow cookies or authorization headers
 };
