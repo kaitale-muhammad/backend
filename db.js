@@ -9,22 +9,18 @@ const jwt = require("jsonwebtoken");
 const dotenv = require("dotenv");
 require("dotenv").config();
 
-const cors = require('cors');
+const cors = require("cors");
 // app.use(cors());
-
-
 
 // Configure CORS
 const corsOptions = {
-  origin: 'https://admin-black-two.vercel.app', // Allow only your frontend domain
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // Allowed methods
+  origin: "https://admin-black-two.vercel.app", // Allow only your frontend domain
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"], // Allowed methods
   credentials: true, // Allow cookies or authorization headers
 };
 
 // Apply CORS middleware
 app.use(cors(corsOptions));
-
-
 
 const bodyParser = require("body-parser");
 app.use(bodyParser.json());
@@ -32,7 +28,6 @@ app.use(bodyParser.urlencoded({ extended: true }));
 const nodemailer = require("nodemailer");
 const crypto = require("crypto");
 app.use(express.json());
-
 
 const path = require("path");
 const fs = require("fs");
@@ -1042,16 +1037,7 @@ app.get("/admin", (req, res) => {
 //   });
 // });
 
-// Login Route
-app.options('/adminlogin', (req, res) => {
-  res.header('Access-Control-Allow-Origin', 'https://admin-psl.vercel.app');
-  res.header('Access-Control-Allow-Methods', 'POST, GET, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.sendStatus(200); // Respond OK to preflight
-});
-
-app.post('/adminlogin', cors(), (req, res) => {
+app.post("/adminlogin", cors(), (req, res) => {
   const { email, password } = req.body;
 
   // Query the database to find the admin by email
@@ -1099,36 +1085,35 @@ app.post('/adminlogin', cors(), (req, res) => {
     // res.status(200).json({ message: "Login successful", token });
     console.log("About to send response");
     //return res.status(200).json({ message: "Login successful", token: token });
-      res.status(200).json({ message: 'Login successful', token: 'test_token' });
-
+    res.status(200).json({ message: "Login successful", token: "test_token" });
   });
 });
 
-// Edit 
+// Edit
 app.put("/admin", (req, res) => {
   const { email, newpassword } = req.body;
 
   // Hash the new password using bcrypt
   // bcrypt.hash(newpassword, 10, (err, hashedPassword) => {
-    if (err) {
-      console.log(err);
-      return res.sendStatus(500); // Return an error if hashing fails
-    }
+  if (err) {
+    console.log(err);
+    return res.sendStatus(500); // Return an error if hashing fails
+  }
 
-    // Update the admin record with the new email and hashed password
-    var sql = `UPDATE admin
+  // Update the admin record with the new email and hashed password
+  var sql = `UPDATE admin
       SET 
         email = ?,
         password = ?  
       WHERE email = ?`; // Make sure you update based on a unique identifier like email
 
-    db.query(sql, [email, newpassword, email], (err, data) => {
-      if (data) {
-        return res.sendStatus(201); // Success
-      }
-      console.log(err);
-      res.sendStatus(500); // Return an error if the update fails
-    });
+  db.query(sql, [email, newpassword, email], (err, data) => {
+    if (data) {
+      return res.sendStatus(201); // Success
+    }
+    console.log(err);
+    res.sendStatus(500); // Return an error if the update fails
+  });
   // });
 });
 ///// User Create account on App
@@ -2133,6 +2118,3 @@ const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-
-
-
