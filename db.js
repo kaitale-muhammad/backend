@@ -1045,7 +1045,7 @@ app.post("/adminlogin", cors(), (req, res) => {
   db.query(sql, [email], (err, data) => {
     if (err) {
       console.error(err); // Log the actual error for debugging
-      return res.status(500).send("Database error");
+      return res.status(500).send(err);
     }
 
     if (data.length === 0) {
