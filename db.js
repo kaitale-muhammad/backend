@@ -1060,7 +1060,7 @@ app.post("/adminlogin", cors(), (req, res) => {
     }
 
     // Generate a JWT token
-    const secretKey = process.env.JWT_SECRET;
+    const secretKey = process.env.JWT_SECRET || "fjfjfjfjfjfjfjfj";
 
     if (!secretKey) {
       console.error("JWT_SECRET is missing!");
